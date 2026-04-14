@@ -230,7 +230,9 @@ export const parse = (opts = {}) => {
         atNewline = true
       }
 
-      if (nextCursor < 0 || !nextCursor) {
+      // Exit when no delimiter or newline was found in the remaining chunk,
+      // or when flush is called with an empty chunk (nextCursor and chunkLength both 0).
+      if (nextCursor < 0 || (nextCursor === 0 && chunkLength === 0)) {
         break
       }
 

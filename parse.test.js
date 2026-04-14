@@ -110,6 +110,21 @@ test('Should parse csv string w/ quotes', async (t) => {
   equal(options.enqueue.callCount, 2)
 })
 
+test('Should parse csv string with empty first column and small chunkSize', async (t) => {
+  const options = {
+    enqueue: sinon.spy(),
+    chunkSize: 14 // forces chunk boundary before empty-first-field row
+  }
+  const input = 'a,b,c\r\n1,2,3\r\n,5,6\r\n7,8,9\r\n'
+  const res = csvParse(input, options)
+  deepEqual(res, [
+    { a: '1', b: '2', c: '3' },
+    { a: '', b: '5', c: '6' },
+    { a: '7', b: '8', c: '9' }
+  ])
+  equal(options.enqueue.callCount, 3)
+})
+
 // *** General *** //
 for (const method of allMethods) {
   test(`${method}: Should parse single row with { }`, async (t) => {
@@ -188,6 +203,54 @@ for (const method of quoteMethods) {
     ])
     deepEqual(enqueue.secondCall.args, [
       { data: { a: '4', b: '5', c: '6' }, idx: 3 }
+    ])
+  })
+}
+
+for (const method of allMethods) {
+  test(`${method}: Should parse with chunking when chunk starts with empty field`, async (t) => {
+    const options = {}
+    const enqueue = sinon.spy()
+    const parser = parse(options)
+    // Chunk 1: header + complete row (no partial data left over)
+    let chunk = 'a,b,c\r\n1,2,3\r\n'
+    parser[method](chunk, { enqueue })
+    // Chunk 2: starts with ',' because the next row has an empty first field
+    chunk = parser.previousChunk() + ',5,6\r\n7,8,9\r\n'
+    parser[method](chunk, { enqueue })
+    equal(enqueue.callCount, 3)
+    deepEqual(enqueue.firstCall.args, [
+      { data: { a: '1', b: '2', c: '3' }, idx: 2 }
+    ])
+    deepEqual(enqueue.secondCall.args, [
+      { data: { a: '', b: '5', c: '6' }, idx: 3 }
+    ])
+    deepEqual(enqueue.thirdCall.args, [
+      { data: { a: '7', b: '8', c: '9' }, idx: 4 }
+    ])
+  })
+}
+
+for (const method of quoteMethods) {
+  test(`${method}: Should parse with chunking when chunk boundary falls in empty rows before quoted field`, async (t) => {
+    const options = {}
+    const enqueue = sinon.spy()
+    const parser = parse(options)
+    // Chunk 1: header + data row, then partial comma-only row
+    let chunk = 'a,b,c\r\n1,2,3\r\n,,'
+    parser[method](chunk, { enqueue })
+    // Chunk 2: rest of empty row + row with quoted field containing comma
+    chunk = parser.previousChunk() + '\r\n4,"5,5",6\r\n'
+    parser[method](chunk, { enqueue })
+    equal(enqueue.callCount, 3)
+    deepEqual(enqueue.firstCall.args, [
+      { data: { a: '1', b: '2', c: '3' }, idx: 2 }
+    ])
+    deepEqual(enqueue.secondCall.args, [
+      { data: { a: '', b: '', c: '' }, idx: 3 }
+    ])
+    deepEqual(enqueue.thirdCall.args, [
+      { data: { a: '4', b: '5,5', c: '6' }, idx: 4 }
     ])
   })
 }
