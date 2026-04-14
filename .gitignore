@@ -1,11 +1,7 @@
-*.cjs
-*.mjs
 *.mjs.map
 coverage
 *.0x
 *.br
-
-!commitlint.config.cjs
 
 # Logs
 logs

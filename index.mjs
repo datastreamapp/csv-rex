@@ -1,0 +1,1 @@
+import r from"csv-rex/parse";import o from"csv-rex/parse-mini";import t from"csv-rex/format";const a=r,i=o,m=t;var c={parse:r,parseMini:o,format:t};export{c as default,m as format,a as parse,i as parseMini};
